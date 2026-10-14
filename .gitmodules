@@ -1,0 +1,6 @@
+[submodule "rx-firmware/custom-drivers"]
+	path = rx-firmware/custom-drivers
+	url = https://github.com/marcellus987/custom-drivers.git
+[submodule "tx-firmware/custom-drivers"]
+	path = tx-firmware/custom-drivers
+	url = https://github.com/marcellus987/custom-drivers.git
