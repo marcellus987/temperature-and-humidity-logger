@@ -27,6 +27,7 @@
 #include <string.h>
 #include "stm32_commons.h"
 #include "dht22_driver.h"
+#include "temp_hum_commons.h"
 
 
 /* USER CODE END Includes */
@@ -171,23 +172,27 @@ int main(void)
   {
 	  HAL_TIM_Base_Start(&htim2);
 	  if(dht22_read(&thSensor, &thRawSensorData)) {
-		  processTempHumidSensorData(&thRawSensorData, &thProcessedData);
+		  /* Skip index 0. */
+		  status[0] = STATUS_SENSOR_QUERY_OK;
+		  memcpy(status + 1, (uint8_t*)&thRawSensorData, sizeof(raw_dht22_data_t));
+//		  processTempHumidSensorData(&thRawSensorData, &thProcessedData);
 //		  sprintf((char*)status, "Humidity: %d.%d%% Temp: %d.%d Celsius", thProcessedData.humidityInt, thProcessedData.humidityDec, thProcessedData.tempInt, thProcessedData.tempDec);
+//		  HAL_UART_Transmit(&huart2, status, strlen((char*)status), 100);
 	  }
 	  else {
-		  Error_Handler();
+		  /* Turn on-board LED ON. */
+		  HAL_GPIO_WritePin(BUILT_IN_LED_GPIO_Port, BUILT_IN_LED_Pin, GPIO_PIN_RESET);
+		  status[0] = STATUS_SENSOR_QUERY_ERROR;
+		  memset(status + 1, 0, sizeof(raw_dht22_data_t)); /* Fill the rest of the packet with null. */
+		  HAL_Delay(500);
 //		  sprintf((char*)status, "Error: failed to read sensor.");
 	  }
 	  HAL_TIM_Base_Stop(&htim2);
 
-	  memcpy(status, (uint8_t*)&thRawSensorData, sizeof(raw_dht22_data_t));
+	  rylr689_radio_send(&radio1, sizeof(raw_dht22_data_t) + 1);
 
-	  HAL_UART_Transmit(&huart2, status, strlen((char*)status), 100);
-	  rylr689_radio_send(&radio1, sizeof(raw_dht22_data_t));
-	  HAL_GPIO_WritePin(BUILT_IN_LED_GPIO_Port, BUILT_IN_LED_Pin, GPIO_PIN_RESET);
-	  HAL_Delay(1500);
-	  HAL_GPIO_WritePin(BUILT_IN_LED_GPIO_Port, BUILT_IN_LED_Pin, GPIO_PIN_SET);
-	  HAL_Delay(1500);
+	  /* Sleep for 1 second. */
+	  enterStandbyRtcWkTimer(&hrtc, 5);
 
     /* USER CODE END WHILE */
 
