@@ -28,6 +28,7 @@
 #include "ff.h"
 #include "oled_sh1106_driver.h"
 #include "dht22_driver.h"
+#include "temp_hum_commons.h"
 #include <string.h>
 
 /* USER CODE END Includes */
@@ -390,6 +391,8 @@ int main(void)
 	RTC_DateTypeDef savedDate = curDate;
 	uint8_t oldTempBuffLen = strlen(tempReadBuff);
 	uint8_t oldHumBuffLen = strlen(humReadBuff);
+	char fileWriteSrcBuff[50];
+
 
   /* USER CODE END 2 */
 
@@ -413,16 +416,36 @@ int main(void)
 			  /* Fetch packet. */
 			  rylr689_radio_get_packet(&radio1, &packetSizeReceived);
 
-			  if(packetSizeReceived != sizeof(raw_dht22_data_t)) {
+			  /* +1 byte because of sensor query status code. */
+			  if(packetSizeReceived != (sizeof(raw_dht22_data_t) + 1)) {
 				  break; /* Error in transmission. Log it later. Don't update display. */
 			  }
 
-			  memcpy((uint8_t*)&rawSensorData, status, sizeof(raw_dht22_data_t));
+			  /* Check status of sensor query. */
+			  switch (status[0]) {
+			  case STATUS_SENSOR_QUERY_OK:
+				  /* Status + 1 to skip sensor status code. */
+				  memcpy((uint8_t*)&rawSensorData, status + 1, sizeof(raw_dht22_data_t));
 
-			  /* Process data received. */
-			  processTempHumidSensorData(&rawSensorData, &sensorData);
-			  snprintf(tempReadBuff, 50, "%d.%d \xB0""C", sensorData.tempInt, sensorData.tempDec);
-			  snprintf(humReadBuff, 50, "%d.%d%%", sensorData.humidityInt, sensorData.humidityDec);
+				  /* Process data received. */
+				  processTempHumidSensorData(&rawSensorData, &sensorData);
+				  snprintf(tempReadBuff, 50, "%d.%d \xB0""C", sensorData.tempInt, sensorData.tempDec);
+				  snprintf(humReadBuff, 50, "%d.%d%%", sensorData.humidityInt, sensorData.humidityDec);
+
+				  /* Re-use status buffer. */
+				  sprintf(fileWriteSrcBuff, "%s,%s,%d.%d,%d.%d\r\n",
+						  dateBuff, timeBuff, sensorData.tempInt, \
+						  sensorData.tempDec, sensorData.humidityInt, \
+						  sensorData.humidityDec);
+				  break;
+			  case STATUS_SENSOR_QUERY_ERROR:
+				  sprintf(tempReadBuff, "Error!");
+				  sprintf(humReadBuff, "Error!");
+
+				  sprintf(fileWriteSrcBuff, "%s,%s,Sensor Error!,Sensor Error!\r\n", dateBuff, timeBuff);
+				  break;
+			  default:
+			  }
 
 			  /* Update display for date and time. */
 			  getDateTime(&curTime, &curDate);
@@ -466,16 +489,8 @@ int main(void)
 			  oldTempBuffLen = newTempBuffLen;
 			  oldHumBuffLen = newHumBuffLen;
 
-			  char tempBuff[50];
-
-			  /* Re-use status buffer. */
-			  sprintf(tempBuff, "%s,%s,%d.%d,%d.%d\r\n",
-					  dateBuff, timeBuff, sensorData.tempInt, \
-					  sensorData.tempDec, sensorData.humidityInt, \
-					  sensorData.humidityDec);
-
 			  /* Log data to file. */
-			  f_write(&file, tempBuff, (UINT)(strlen(tempBuff)), &bw);
+			  f_write(&file, fileWriteSrcBuff, (UINT)(strlen(fileWriteSrcBuff)), &bw);
 			  f_sync(&file);
 			  /* Reset application state. */
 			  appState = STATE_APP_START;
