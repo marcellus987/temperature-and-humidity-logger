@@ -191,8 +191,8 @@ int main(void)
 
 	  rylr689_radio_send(&radio1, sizeof(raw_dht22_data_t) + 1);
 
-	  /* Sleep for 1 second. */
-	  enterStandbyRtcWkTimer(&hrtc, 5);
+	  /* Sleep for 15 minutes. */
+	  enterStandbyRtcWkTimer(&hrtc, 900);
 
     /* USER CODE END WHILE */
 
@@ -481,7 +481,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BUILT_IN_LED_GPIO_Port, BUILT_IN_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(BUILT_IN_LED_GPIO_Port, BUILT_IN_LED_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, DHT22_SENSOR_IO_Pin|LoRa_Module_CS_pin_Pin, GPIO_PIN_SET);
